@@ -1,5 +1,6 @@
 import warnings
 from enum import Enum, unique
+
 warnings.filterwarnings('ignore')
 import os
 import torch
@@ -8,6 +9,7 @@ import platform
 import stat
 from fsplit.filesplit import Filesplit
 import paddle
+
 # ×××××××××××××××××××× [不要改] start ××××××××××××××××××××
 paddle.disable_signal_handler()
 logging.disable(logging.DEBUG)  # 关闭DEBUG日志的打印
@@ -16,7 +18,6 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LAMA_MODEL_PATH = os.path.join(BASE_DIR, 'models', 'big-lama')
 STTN_MODEL_PATH = os.path.join(BASE_DIR, 'models', 'sttn', 'infer_model.pth')
-VIDEO_INPAINT_MODEL_PATH = os.path.join(BASE_DIR, 'models', 'video')
 MODEL_VERSION = 'V4'
 DET_MODEL_BASE = os.path.join(BASE_DIR, 'models')
 DET_MODEL_PATH = os.path.join(DET_MODEL_BASE, MODEL_VERSION, 'ch_det')
@@ -29,10 +30,6 @@ if 'big-lama.pt' not in (os.listdir(LAMA_MODEL_PATH)):
 if 'inference.pdiparams' not in os.listdir(DET_MODEL_PATH):
     fs = Filesplit()
     fs.merge(input_dir=DET_MODEL_PATH)
-
-if 'ProPainter.pth' not in os.listdir(VIDEO_INPAINT_MODEL_PATH):
-    fs = Filesplit()
-    fs.merge(input_dir=VIDEO_INPAINT_MODEL_PATH)
 
 # 指定ffmpeg可执行程序路径
 sys_str = platform.system()
@@ -50,6 +47,8 @@ if 'ffmpeg.exe' not in os.listdir(os.path.join(BASE_DIR, '', 'ffmpeg', 'win_x64'
 # 将ffmpeg添加可执行权限
 os.chmod(FFMPEG_PATH, stat.S_IRWXU + stat.S_IRWXG + stat.S_IRWXO)
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+
+
 # ×××××××××××××××××××× [不要改] end ××××××××××××××××××××
 
 
@@ -60,7 +59,6 @@ class InpaintMode(Enum):
     """
     STTN = 'sttn'
     LAMA = 'lama'
-    PROPAINTER = 'propainter'
 
 
 # ×××××××××××××××××××× [可以改] start ××××××××××××××××××××
@@ -68,7 +66,7 @@ class InpaintMode(Enum):
 # ×××××××××× 通用设置 start ××××××××××
 # 【设置inpaint算法】
 # - InpaintMode.STTN 算法：对于真人视频效果较好，速度快，可以跳过字幕检测
-# - InpaintMode.LAMA 算法：对于动画类视频效果好，速度一般，不可以跳过字幕检测
+# - InpaintMode.LAMA 算法：对于动画类视频效果好，速度一般，不可以字幕检测
 # - InpaintMode.PROPAINTER 算法： 需要消耗大量显存，速度较慢，对运动非常剧烈的视频效果较好
 MODE = InpaintMode.STTN
 # 【设置像素点偏差】
@@ -88,22 +86,15 @@ PIXEL_TOLERANCE_X = 20  # 允许检测框横向偏差的像素点数
 # 是否使用跳过检测，跳过字幕检测会省去很大时间，但是可能误伤无字幕的视频帧
 STTN_SKIP_DETECTION = True
 # 相邻帧数, 调大会增加显存占用，效果变好
-STTN_NEIGHBOR_STRIDE = 10
+STTN_NEIGHBOR_STRIDE = 50
 # 参考帧长度, 调大会增加显存占用，效果变好
-STTN_REFERENCE_LENGTH = 10
+STTN_REFERENCE_LENGTH = 50
 # 设置STTN算法最大同时处理的帧数量，设置越大速度越慢，但效果越好
 # 要保证STTN_MAX_LOAD_NUM大于STTN_NEIGHBOR_STRIDE和STTN_REFERENCE_LENGTH
 STTN_MAX_LOAD_NUM = 30
 if STTN_MAX_LOAD_NUM < max(STTN_NEIGHBOR_STRIDE, STTN_REFERENCE_LENGTH):
     STTN_MAX_LOAD_NUM = max(STTN_NEIGHBOR_STRIDE, STTN_REFERENCE_LENGTH)
 # ×××××××××× InpaintMode.STTN算法设置 end ××××××××××
-
-# ×××××××××× InpaintMode.PROPAINTER算法设置 start ××××××××××
-# 【根据自己的GPU显存大小设置】最大同时处理的图片数量，设置越大处理效果越好，但是要求显存越高
-# 1280x720p视频设置80需要25G显存，设置50需要19G显存
-# 720x480p视频设置80需要8G显存，设置50需要7G显存
-PROPAINTER_MAX_LOAD_NUM = 70
-# ×××××××××× InpaintMode.PROPAINTER算法设置 end ××××××××××
 
 # ×××××××××× InpaintMode.LAMA算法设置 start ××××××××××
 # 是否开启极速模式，开启后不保证inpaint效果，仅仅对包含文本的区域文本进行去除

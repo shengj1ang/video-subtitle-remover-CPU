@@ -78,39 +78,9 @@ def create_mask(size, coords_list):
         for coords in coords_list:
             xmin, xmax, ymin, ymax = coords
             # 为了避免框过小，放大10个像素
-            x1 = xmin - config.SUBTITLE_AREA_DEVIATION_PIXEL
-            if x1 < 0:
-                x1 = 0
-            y1 = ymin - config.SUBTITLE_AREA_DEVIATION_PIXEL
-            if y1 < 0:
-                y1 = 0
-            x2 = xmax + config.SUBTITLE_AREA_DEVIATION_PIXEL
-            y2 = ymax + config.SUBTITLE_AREA_DEVIATION_PIXEL
-            cv2.rectangle(mask, (x1, y1),
-                          (x2, y2), (255, 255, 255), thickness=-1)
+            cv2.rectangle(mask, (xmin - config.SUBTITLE_AREA_DEVIATION_PIXEL, ymin - config.SUBTITLE_AREA_DEVIATION_PIXEL),
+                          (xmax + config.SUBTITLE_AREA_DEVIATION_PIXEL, ymax + config.SUBTITLE_AREA_DEVIATION_PIXEL), (255, 255, 255), thickness=-1)
     return mask
-
-
-def inpaint_video(video_path, sub_list):
-    index = 0
-    frame_to_inpaint_list = []
-    video_cap = cv2.VideoCapture(video_path)
-    while True:
-        # 读取视频帧
-        ret, frame = video_cap.read()
-        if not ret:
-            break
-        index += 1
-        if index in sub_list.keys():
-            frame_to_inpaint_list.append((index, frame, sub_list[index]))
-        if len(frame_to_inpaint_list) > config.PROPAINTER_MAX_LOAD_NUM:
-            batch_results = parallel_inference(frame_to_inpaint_list)
-            for index, frame in batch_results:
-                file_name = f'/home/yao/Documents/Project/video-subtitle-remover/test/temp/{index}.png'
-                cv2.imwrite(file_name, frame)
-                print(f"success write: {file_name}")
-            frame_to_inpaint_list.clear()
-    print(f'finished')
 
 
 if __name__ == '__main__':

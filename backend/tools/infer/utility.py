@@ -33,12 +33,12 @@ def str2bool(v):
 def init_args():
     parser = argparse.ArgumentParser()
     # params for prediction engine
-    parser.add_argument("--use_gpu", type=str2bool, default=True)
+    #parser.add_argument("--use_gpu", type=str2bool, default=True)
     parser.add_argument("--ir_optim", type=str2bool, default=True)
     parser.add_argument("--use_tensorrt", type=str2bool, default=False)
     parser.add_argument("--min_subgraph_size", type=int, default=15)
     parser.add_argument("--precision", type=str, default="fp32")
-    parser.add_argument("--gpu_mem", type=int, default=500)
+    #parser.add_argument("--gpu_mem", type=int, default=500)
 
     # params for text detector
     parser.add_argument("--image_dir", type=str)
@@ -188,8 +188,8 @@ def create_predictor(args, mode, logger):
                 precision = inference.PrecisionType.Float32
         else:
             precision = inference.PrecisionType.Float32
-
-        if args.use_gpu:
+        args_use_gpu=False
+        if args_use_gpu:
             gpu_id = get_infer_gpuid()
             if gpu_id is None:
                 logger.warning(
@@ -291,10 +291,10 @@ def create_predictor(args, mode, logger):
                 config.set_cpu_math_library_num_threads(args.cpu_threads)
             else:
                 # default cpu threads as 10
-                config.set_cpu_math_library_num_threads(10)
+                config.set_cpu_math_library_num_threads(18)
             if args.enable_mkldnn:
                 # cache 10 different shapes for mkldnn to avoid memory leak
-                config.set_mkldnn_cache_capacity(10)
+                config.set_mkldnn_cache_capacity(100)
                 config.enable_mkldnn()
                 if args.precision == "fp16":
                     config.enable_mkldnn_bfloat16()

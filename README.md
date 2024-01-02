@@ -1,4 +1,4 @@
-简体中文 | [English](README_en.md)
+简体中文 | No English Version, Use browser to translate this README.
 
 ## 项目简介
 
@@ -16,11 +16,6 @@ Video-subtitle-remover (VSR) 是一款基于AI技术，将视频中的硬字幕�
 
 <p style="text-align:center;"><img src="https://github.com/YaoFANGUK/video-subtitle-remover/raw/main/design/demo.png" alt="demo.png"/></p>
 
-**使用说明：**
-
- - 有使用问题请加群讨论，QQ群：806152575
- - 直接下载压缩包解压运行，如果不能运行再按照下面的教程，尝试源码安装conda环境运行
-
 **下载地址：**
 
 Windows GPU版本v1.1.0（GPU）：
@@ -29,7 +24,13 @@ Windows GPU版本v1.1.0（GPU）：
 
 - Google Drive:  <a href="https://drive.google.com/drive/folders/1NRgLNoHHOmdO4GxLhkPbHsYfMOB_3Elr?usp=sharing">vsr_windows_gpu_v1.1.0.zip</a> 
 
-> 仅供具有Nvidia显卡的用户使用(AMD的显卡不行)
+> 这个仓库是CPU版本的，旨在让这个程序能在所有的设备上运行，虽然速度慢，但是对设备没有高要求。
+
+> 并且我修复了一些BUG。
+
+> 你只需要在上面的下载地址下载原作者提供的版本，然后使用本仓库中的backend文件夹替换。
+
+
 
 ## 演示
 
@@ -43,178 +44,15 @@ Windows GPU版本v1.1.0（GPU）：
 
 ## 源码使用说明
 
-> **无Nvidia显卡请勿使用本项目**，最低配置：
->
-> **GPU**：GTX 1060或以上显卡
+> **CPU版本，不需要显卡！！！**，最低配置：
+> 内存小可能会有问题，可以在源码里改改，16G的内存是可以的。
 > 
 > CPU: 支持AVX指令集
 
-#### 1. 下载安装Miniconda 
 
-- Windows: <a href="https://repo.anaconda.com/miniconda/Miniconda3-py38_4.11.0-Windows-x86_64.exe">Miniconda3-py38_4.11.0-Windows-x86_64.exe</a>
+## 后面的可以去看原仓库
 
-- Linux: <a href="https://repo.anaconda.com/miniconda/Miniconda3-py38_4.11.0-Linux-x86_64.sh">Miniconda3-py38_4.11.0-Linux-x86_64.sh</a>
-
-#### 2. 创建并激活虚机环境
-
-（1）切换到源码所在目录：
-```shell
-cd <源码所在目录>
-```
-> 例如：如果你的源代码放在D盘的tools文件下，并且源代码的文件夹名为video-subtitle-remover，就输入 ```cd D:/tools/video-subtitle-remover-main```
-
-（2）创建激活conda环境
-```shell
-conda create -n videoEnv python=3.8
-```
-
-```shell
-conda activate videoEnv
-```
-
-#### 3. 安装依赖文件
-
-请确保你已经安装 python 3.8+，使用conda创建项目虚拟环境并激活环境 (建议创建虚拟环境运行，以免后续出现问题)
-
-- 安装CUDA和cuDNN
-
-  <details>
-      <summary>Linux用户</summary>
-      <h5>(1) 下载CUDA 11.7</h5>
-      <pre><code>wget https://developer.download.nvidia.com/compute/cuda/11.7.0/local_installers/cuda_11.7.0_515.43.04_linux.run</code></pre>
-      <h5>(2) 安装CUDA 11.7</h5>
-      <pre><code>sudo sh cuda_11.7.0_515.43.04_linux.run</code></pre>
-      <p>1. 输入accept</p>
-      <img src="https://i.328888.xyz/2023/03/31/iwVoeH.png" width="500" alt="">
-      <p>2. 选中CUDA Toolkit 11.7（如果你没有安装nvidia驱动则选中Driver，如果你已经安装了nvidia驱动请不要选中driver），之后选中install，回车</p>
-      <img src="https://i.328888.xyz/2023/03/31/iwVThJ.png" width="500" alt="">
-      <p>3. 添加环境变量</p>
-      <p>在 ~/.bashrc 加入以下内容</p>
-      <pre><code># CUDA
-  export PATH=/usr/local/cuda-11.7/bin${PATH:+:${PATH}}
-  export LD_LIBRARY_PATH=/usr/local/cuda-11.7/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}</code></pre>
-      <p>使其生效</p>
-      <pre><code>source ~/.bashrc</code></pre>
-      <h5>(3) 下载cuDNN 8.4.1</h5>
-      <p>国内：<a href="https://pan.baidu.com/s/1Gd_pSVzWfX1G7zCuqz6YYA">cudnn-linux-x86_64-8.4.1.50_cuda11.6-archive.tar.xz</a> 提取码：57mg</p>
-      <p>国外：<a href="https://github.com/YaoFANGUK/video-subtitle-extractor/releases/download/1.0.0/cudnn-linux-x86_64-8.4.1.50_cuda11.6-archive.tar.xz">cudnn-linux-x86_64-8.4.1.50_cuda11.6-archive.tar.xz</a></p>
-      <h5>(4) 安装cuDNN 8.4.1</h5>
-      <pre><code> tar -xf cudnn-linux-x86_64-8.4.1.50_cuda11.6-archive.tar.xz
-   mv cudnn-linux-x86_64-8.4.1.50_cuda11.6-archive cuda
-   sudo cp ./cuda/include/* /usr/local/cuda-11.7/include/
-   sudo cp ./cuda/lib/* /usr/local/cuda-11.7/lib64/
-   sudo chmod a+r /usr/local/cuda-11.7/lib64/*
-   sudo chmod a+r /usr/local/cuda-11.7/include/*</code></pre>
-  </details>
-
-  <details>
-        <summary>Windows用户</summary>
-        <h5>(1) 下载CUDA 11.7</h5>
-        <a href="https://developer.download.nvidia.com/compute/cuda/11.7.0/local_installers/cuda_11.7.0_516.01_windows.exe">cuda_11.7.0_516.01_windows.exe</a>
-        <h5>(2) 安装CUDA 11.7</h5>
-        <h5>(3) 下载cuDNN 8.2.4</h5>
-        <p><a href="https://github.com/YaoFANGUK/video-subtitle-extractor/releases/download/1.0.0/cudnn-windows-x64-v8.2.4.15.zip">cudnn-windows-x64-v8.2.4.15.zip</a></p>
-        <h5>(4) 安装cuDNN 8.2.4</h5>
-        <p>
-           将cuDNN解压后的cuda文件夹中的bin, include, lib目录下的文件复制到C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.7\对应目录下
-        </p>
-    </details>
-
-
-- 安装GPU版本Paddlepaddle:
-
-  - windows:
-
-      ```shell 
-      python -m pip install paddlepaddle-gpu==2.4.2.post117 -f https://www.paddlepaddle.org.cn/whl/windows/mkl/avx/stable.html
-      ```
-
-  - Linux:
-
-      ```shell
-      python -m pip install paddlepaddle-gpu==2.4.2.post117 -f https://www.paddlepaddle.org.cn/whl/linux/mkl/avx/stable.html
-      ```
-
-- 安装GPU版本Pytorch:
-      
-  ```shell 
-  conda install pytorch==2.0.1 torchvision==0.15.2 pytorch-cuda=11.7 -c pytorch -c nvidia
-  ```
-  或者使用
-  ```shell 
-  pip install torch==2.0.1 torchvision==0.15.2 --index-url https://download.pytorch.org/whl/cu117
-  ```
-
-- 安装其他依赖:
-
-  ```shell
-  pip install -r requirements.txt
-  ```
-
-
-#### 4. 运行程序
-
-- 运行图形化界面
-
-```shell
-python gui.py
-```
-
-- 运行命令行版本(CLI)
-
-```shell
-python ./backend/main.py
-```
-
-## 常见问题
-1. 提取速度慢怎么办
-
-修改backend/config.py中的参数，可以大幅度提高去除速度
-```python
-MODE = InpaintMode.STTN  # 设置为STTN算法
-STTN_SKIP_DETECTION = True # 跳过字幕检测
-```
-
-2. 视频去除效果不好怎么办
-
-修改backend/config.py中的参数，尝试不同的去除算法，算法介绍
-
-> - InpaintMode.STTN 算法：对于真人视频效果较好，速度快，可以跳过字幕检测
-> - InpaintMode.LAMA 算法：对于图片效果最好，对动画类视频效果好，速度一般，不可以跳过字幕检测
-> - InpaintMode.PROPAINTER 算法： 需要消耗大量显存，速度较慢，对运动非常剧烈的视频效果较好
-
-- 使用STTN算法
-
-```python
-MODE = InpaintMode.STTN  # 设置为STTN算法
-# 相邻帧数, 调大会增加显存占用，效果变好
-STTN_NEIGHBOR_STRIDE = 10
-# 参考帧长度, 调大会增加显存占用，效果变好
-STTN_REFERENCE_LENGTH = 10
-# 设置STTN算法最大同时处理的帧数量，设置越大速度越慢，但效果越好
-# 要保证STTN_MAX_LOAD_NUM大于STTN_NEIGHBOR_STRIDE和STTN_REFERENCE_LENGTH
-STTN_MAX_LOAD_NUM = 30
-```
-- 使用LAMA算法
-```python
-MODE = InpaintMode.LAMA  # 设置为STTN算法
-LAMA_SUPER_FAST = False  # 保证效果
-```
-
-3. CondaHTTPError
-将项目中的.condarc放在用户目录下(C:/Users/<你的用户名>)，如果用户目录已经存在该文件则覆盖
-
-解决方案：https://zhuanlan.zhihu.com/p/260034241
-
-4. 7z文件解压错误
-
-解决方案：升级7-zip解压程序到最新版本
-
-5. 4090使用cuda 11.7跑不起来
-
-解决方案：改用cuda 11.8
-
-## 赞助
+## 赞助（这个是给原作者的）
 <img src="https://i.imgur.com/EMCP5Lv.jpeg" width="600">
 
 | 捐赠者                       | 累计捐赠金额     | 赞助席位 |

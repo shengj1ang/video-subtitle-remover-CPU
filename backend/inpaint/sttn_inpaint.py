@@ -39,7 +39,7 @@ class STTNInpaint:
     def __call__(self, input_frames: List[np.ndarray], input_mask: np.ndarray):
         """
         :param input_frames: 原视频帧
-        :param mask: 字幕区域mask
+        :param input_mask: 字幕区域mask
         """
         _, mask = cv2.threshold(input_mask, 127, 1, cv2.THRESH_BINARY)
         mask = mask[:, :, None]
@@ -79,6 +79,10 @@ class STTNInpaint:
                 frame = frames_hr[j]  # 取出原始帧
                 # 对于模式中的每一个段落
                 for k in range(len(inpaint_area)):
+                    # 确保frames[k]不为空
+                    if not frames[k]:
+                        continue
+
                     comp = cv2.resize(comps[k][j], (W_ori, split_h))  # 将补全帧缩放回原大小
                     comp = cv2.cvtColor(np.array(comp).astype(np.uint8), cv2.COLOR_BGR2RGB)  # 转换颜色空间
                     # 获取遮罩区域并进行图像合成
@@ -89,6 +93,7 @@ class STTNInpaint:
                 inpainted_frames.append(frame)
                 print(f'processing frame, {len(frames_hr) - j} left')
         return inpainted_frames
+
 
     @staticmethod
     def read_mask(path):
@@ -267,35 +272,63 @@ class STTNVideoInpaint:
             # 读取和修复高分辨率帧
             for j in range(start_f, end_f):
                 success, image = reader.read()
+                if not success:
+                    # 处理读取失败的情况，例如跳过或记录错误
+                    continue
+
                 frames_hr.append(image)
                 for k in range(len(inpaint_area)):
+                    # 确保裁剪区域有效
+                    crop_start, crop_end = inpaint_area[k][0], inpaint_area[k][1]
+                    if crop_start < 0 or crop_end > image.shape[0] or crop_end <= crop_start:
+                        # 处理无效裁剪区域的情况
+                        continue
+
                     # 裁剪、缩放并添加到帧字典
-                    image_crop = image[inpaint_area[k][0]:inpaint_area[k][1], :, :]
+                    image_crop = image[crop_start:crop_end, :, :]
                     image_resize = cv2.resize(image_crop, (self.sttn_inpaint.model_input_width, self.sttn_inpaint.model_input_height))
                     frames[k].append(image_resize)
+
             # 对每个修复区域运行修复
             for k in range(len(inpaint_area)):
-                comps[k] = self.sttn_inpaint.inpaint(frames[k])
+                # 确保 frames[k] 不为空
+                if frames[k]:
+                    comps[k] = self.sttn_inpaint.inpaint(frames[k])
+                else:
+                    # 处理空列表的情况，例如打印警告或跳过
+                    print(f"Warning: frames[{k}] is empty, skipping inpainting for this segment.")
+                    # 如果需要，您可以在这里初始化 comps[k] 为 None 或适当的默认值
+                    comps[k] = None
+
+
             # 如果有要修复的区域
-            if inpaint_area is not []:
+            if inpaint_area:
                 for j in range(end_f - start_f):
-                    if input_sub_remover is not None and input_sub_remover.gui_mode:
-                        original_frame = copy.deepcopy(frames_hr[j])
-                    else:
-                        original_frame = None
-                    frame = frames_hr[j]
-                    for k in range(len(inpaint_area)):
-                        # 将修复的图像重新扩展到原始分辨率，并融合到原始帧
-                        comp = cv2.resize(comps[k][j], (frame_info['W_ori'], split_h))
-                        comp = cv2.cvtColor(np.array(comp).astype(np.uint8), cv2.COLOR_BGR2RGB)
-                        mask_area = mask[inpaint_area[k][0]:inpaint_area[k][1], :]
-                        frame[inpaint_area[k][0]:inpaint_area[k][1], :, :] = mask_area * comp + (1 - mask_area) * frame[inpaint_area[k][0]:inpaint_area[k][1], :, :]
-                    writer.write(frame)
-                    if input_sub_remover is not None:
-                        if tbar is not None:
-                            input_sub_remover.update_progress(tbar, increment=1)
-                        if original_frame is not None and input_sub_remover.gui_mode:
-                            input_sub_remover.preview_frame = cv2.hconcat([original_frame, frame])
+                    # 确保索引在frames_hr的范围内
+                    if j < len(frames_hr):
+                        if input_sub_remover is not None and input_sub_remover.gui_mode:
+                            original_frame = copy.deepcopy(frames_hr[j])
+                        else:
+                            original_frame = None
+
+                        frame = frames_hr[j]
+
+                        for k in range(len(inpaint_area)):
+                            # 将修复的图像重新扩展到原始分辨率，并融合到原始帧
+                            comp = cv2.resize(comps[k][j], (frame_info['W_ori'], split_h))
+                            comp = cv2.cvtColor(np.array(comp).astype(np.uint8), cv2.COLOR_BGR2RGB)
+                            mask_area = mask[inpaint_area[k][0]:inpaint_area[k][1], :]
+                            frame[inpaint_area[k][0]:inpaint_area[k][1], :, :] = mask_area * comp + (1 - mask_area) * frame[inpaint_area[k][0]:inpaint_area[k][1], :, :]
+
+                        writer.write(frame)
+
+                        if input_sub_remover is not None and input_sub_remover.gui_mode:
+                            if tbar is not None:
+                                input_sub_remover.update_progress(tbar, increment=1)
+                            if original_frame is not None:
+                                input_sub_remover.preview_frame = cv2.hconcat([original_frame, frame])
+
+
         # 释放视频写入对象
         writer.release()
 

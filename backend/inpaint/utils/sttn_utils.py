@@ -68,10 +68,14 @@ class Stack(object):
         self.roll = roll
 
     def __call__(self, img_group):
+        # Check if img_group is empty
+        if not img_group:
+            raise ValueError("Input img_group is empty")
+
         for i in range(len(img_group)):
-            if img_group[i].ndim==3:
+            if img_group[i].ndim == 3:
                 img_group[i] = Image.fromarray(cv2.cvtColor(img_group[i], cv2.COLOR_BGR2RGB))
-            elif img_group[i].ndim==2:
+            elif img_group[i].ndim == 2:
                 img_group[i] = Image.fromarray(img_group[i])
 
         mode = img_group[0].mode
@@ -87,7 +91,6 @@ class Stack(object):
                 return np.stack(img_group, axis=2)
         else:
             raise NotImplementedError(f"Image mode {mode}")
-
 
 class ToTorchFormatTensor(object):
     """ Converts a PIL.Image (RGB) or numpy.ndarray (H x W x C) in the range [0, 255]

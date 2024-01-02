@@ -5,16 +5,13 @@ from pathlib import Path
 import threading
 import cv2
 import sys
-
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
-from backend.tools.common_tools import is_video_or_image, is_image_file
 from backend.scenedetect import scene_detect
 from backend.scenedetect.detectors import ContentDetector
 from backend.inpaint.sttn_inpaint import STTNInpaint, STTNVideoInpaint
 from backend.inpaint.lama_inpaint import LamaInpaint
-from backend.inpaint.video_inpaint import VideoInpaint
 from backend.tools.inpaint_tools import create_mask, batch_generator
 import importlib
 import platform
@@ -292,10 +289,12 @@ class SubtitleDetect:
         for start, end in expanded[1:]:
             last_start, last_end = merged[-1]
             # 检查是否重叠
-            if start <= last_end and (end - last_start + 1 < target_length or last_end - last_start + 1 < target_length):
+            if start <= last_end and (
+                    end - last_start + 1 < target_length or last_end - last_start + 1 < target_length):
                 # 需要合并
                 merged[-1] = (last_start, max(last_end, end))  # 合并区间
-            elif start == last_end + 1 and (end - last_start + 1 < target_length or last_end - last_start + 1 < target_length):
+            elif start == last_end + 1 and (
+                    end - last_start + 1 < target_length or last_end - last_start + 1 < target_length):
                 # 相邻区间也需要合并的场景
                 merged[-1] = (last_start, end)
             else:
@@ -483,7 +482,7 @@ class SubtitleRemover:
         self.gui_mode = gui_mode
         # 判断是否为图片
         self.is_picture = False
-        if is_image_file(str(vd_path)):
+        if str(vd_path).endswith(('.bmp', '.dib', '.png', '.jpg', '.jpeg', '.pbm', '.pgm', '.ppm', '.tif', '.tiff')):
             self.sub_area = None
             self.is_picture = True
         # 视频路径
@@ -505,7 +504,8 @@ class SubtitleRemover:
         # 创建视频临时对象，windows下delete=True会有permission denied的报错
         self.video_temp_file = tempfile.NamedTemporaryFile(suffix='.mp4', delete=False)
         # 创建视频写对象
-        self.video_writer = cv2.VideoWriter(self.video_temp_file.name, cv2.VideoWriter_fourcc(*'mp4v'), self.fps, self.size)
+        self.video_writer = cv2.VideoWriter(self.video_temp_file.name, cv2.VideoWriter_fourcc(*'mp4v'), self.fps,
+                                            self.size)
         self.video_out_name = os.path.join(os.path.dirname(self.video_path), f'{self.vd_name}_no_sub.mp4')
         self.video_inpaint = None
         self.lama_inpaint = None
@@ -574,91 +574,6 @@ class SubtitleRemover:
         self.progress_remover = int(current_percentage) // 2
         self.progress_total = 50 + self.progress_remover
 
-    def propainter_mode(self, tbar):
-        print('use propainter mode')
-        sub_list = self.sub_detector.find_subtitle_frame_no(sub_remover=self)
-        continuous_frame_no_list = self.sub_detector.find_continuous_ranges_with_same_mask(sub_list)
-        scene_div_points = self.sub_detector.get_scene_div_frame_no(self.video_path)
-        continuous_frame_no_list = self.sub_detector.split_range_by_scene(continuous_frame_no_list,
-                                                                          scene_div_points)
-        self.video_inpaint = VideoInpaint(config.PROPAINTER_MAX_LOAD_NUM)
-        print('[Processing] start removing subtitles...')
-        index = 0
-        while True:
-            ret, frame = self.video_cap.read()
-            if not ret:
-                break
-            index += 1
-            # 如果当前帧没有水印/文本则直接写
-            if index not in sub_list.keys():
-                self.video_writer.write(frame)
-                print(f'write frame: {index}')
-                self.update_progress(tbar, increment=1)
-                continue
-            # 如果有水印，判断该帧是不是开头帧
-            else:
-                # 如果是开头帧，则批推理到尾帧
-                if self.is_current_frame_no_start(index, continuous_frame_no_list):
-                    # print(f'No 1 Current index: {index}')
-                    start_frame_no = index
-                    print(f'find start: {start_frame_no}')
-                    # 找到结束帧
-                    end_frame_no = self.find_frame_no_end(index, continuous_frame_no_list)
-                    # 判断当前帧号是不是字幕起始位置
-                    # 如果获取的结束帧号不为-1则说明
-                    if end_frame_no != -1:
-                        print(f'find end: {end_frame_no}')
-                        # ************ 读取该区间所有帧 start ************
-                        temp_frames = list()
-                        # 将头帧加入处理列表
-                        temp_frames.append(frame)
-                        inner_index = 0
-                        # 一直读取到尾帧
-                        while index < end_frame_no:
-                            ret, frame = self.video_cap.read()
-                            if not ret:
-                                break
-                            index += 1
-                            temp_frames.append(frame)
-                        # ************ 读取该区间所有帧 end ************
-                        if len(temp_frames) < 1:
-                            # 没有待处理，直接跳过
-                            continue
-                        elif len(temp_frames) == 1:
-                            inner_index += 1
-                            single_mask = create_mask(self.mask_size, sub_list[index])
-                            if self.lama_inpaint is None:
-                                self.lama_inpaint = LamaInpaint()
-                            inpainted_frame = self.lama_inpaint(frame, single_mask)
-                            self.video_writer.write(inpainted_frame)
-                            print(f'write frame: {start_frame_no + inner_index} with mask {sub_list[start_frame_no]}')
-                            self.update_progress(tbar, increment=1)
-                            continue
-                        else:
-                            # 将读取的视频帧分批处理
-                            # 1. 获取当前批次使用的mask
-                            mask = create_mask(self.mask_size, sub_list[start_frame_no])
-                            for batch in batch_generator(temp_frames, config.PROPAINTER_MAX_LOAD_NUM):
-                                # 2. 调用批推理
-                                if len(batch) == 1:
-                                    single_mask = create_mask(self.mask_size, sub_list[start_frame_no])
-                                    if self.lama_inpaint is None:
-                                        self.lama_inpaint = LamaInpaint()
-                                    inpainted_frame = self.lama_inpaint(frame, single_mask)
-                                    self.video_writer.write(inpainted_frame)
-                                    print(f'write frame: {start_frame_no + inner_index} with mask {sub_list[start_frame_no]}')
-                                    inner_index += 1
-                                    self.update_progress(tbar, increment=1)
-                                elif len(batch) > 1:
-                                    inpainted_frames = self.video_inpaint.inpaint(batch, mask)
-                                    for i, inpainted_frame in enumerate(inpainted_frames):
-                                        self.video_writer.write(inpainted_frame)
-                                        print(f'write frame: {start_frame_no + inner_index} with mask {sub_list[index]}')
-                                        inner_index += 1
-                                        if self.gui_mode:
-                                            self.preview_frame = cv2.hconcat([batch[i], inpainted_frame])
-                                self.update_progress(tbar, increment=len(batch))
-
     def sttn_mode_with_no_detection(self, tbar):
         """
         使用sttn对选中区域进行重绘，不进行字幕检测
@@ -667,13 +582,12 @@ class SubtitleRemover:
         print('[Processing] start removing subtitles...')
         if self.sub_area is not None:
             ymin, ymax, xmin, xmax = self.sub_area
+            mask_area_coordinates = [(xmin, xmax, ymin, ymax)]
+            mask = create_mask(self.mask_size, mask_area_coordinates)
+            sttn_video_inpaint = STTNVideoInpaint(self.video_path)
+            sttn_video_inpaint(input_mask=mask, input_sub_remover=self, tbar=tbar)
         else:
-            print('[Info] No subtitle area has been set. Video will be processed in full screen. As a result, the final outcome might be suboptimal.')
-            ymin, ymax, xmin, xmax = 0, self.frame_height, 0, self.frame_width
-        mask_area_coordinates = [(xmin, xmax, ymin, ymax)]
-        mask = create_mask(self.mask_size, mask_area_coordinates)
-        sttn_video_inpaint = STTNVideoInpaint(self.video_path)
-        sttn_video_inpaint(input_mask=mask, input_sub_remover=self, tbar=tbar)
+            print('please set subtitle area first')
 
     def sttn_mode(self, tbar):
         # 是否跳过字幕帧寻找
@@ -801,9 +715,7 @@ class SubtitleRemover:
             self.progress_total = 100
         else:
             # 精准模式下，获取场景分割的帧号，进一步切割
-            if config.MODE == config.InpaintMode.PROPAINTER:
-                self.propainter_mode(tbar)
-            elif config.MODE == config.InpaintMode.STTN:
+            if config.MODE == config.InpaintMode.STTN:
                 self.sttn_mode(tbar)
             else:
                 self.lama_mode(tbar)
@@ -857,10 +769,7 @@ class SubtitleRemover:
                 try:
                     os.remove(temp.name)
                 except Exception:
-                    if platform.system() in ['Windows']:
-                        pass
-                    else:
-                        print(f'failed to delete temp file {temp.name}')
+                    print(f'failed to delete temp file {temp.name}')
             self.is_successful_merged = True
         finally:
             temp.close()
@@ -875,13 +784,9 @@ class SubtitleRemover:
 if __name__ == '__main__':
     multiprocessing.set_start_method("spawn")
     # 1. 提示用户输入视频路径
-    video_path = input(f"Please input video or image file path: ").strip()
-    # 判断视频路径是不是一个目录，是目录的化，批量处理改目录下的所有视频文件
+    video_path = input(f"Please input video file path: ").strip()
     # 2. 按以下顺序传入字幕区域
     # sub_area = (ymin, ymax, xmin, xmax)
     # 3. 新建字幕提取对象
-    if is_video_or_image(video_path):
-        sd = SubtitleRemover(video_path, sub_area=None)
-        sd.run()
-    else:
-        print(f'Invalid video path: {video_path}')
+    sd = SubtitleRemover(video_path, sub_area=None)
+    sd.run()
