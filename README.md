@@ -1,4 +1,10 @@
-简体中文 | No English Version, Use browser to translate this README.
+﻿简体中文 | No English Version, Use browser to translate this README.
+
+
+视频介绍：
+[https://www.youtube.com/watch?v=31PfkCSR5_8](https://www.youtube.com/watch?v=31PfkCSR5_8)
+[https://www.bilibili.com/video/BV1xi4y1r7gP](https://www.bilibili.com/video/BV1xi4y1r7gP)
+
 
 ## 项目简介
 
